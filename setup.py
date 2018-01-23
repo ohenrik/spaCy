@@ -47,7 +47,7 @@ MOD_NAMES = [
 COMPILE_OPTIONS =  {
     'msvc': ['/Ox', '/EHsc'],
     'mingw32' : ['-O2', '-Wno-strict-prototypes', '-Wno-unused-function'],
-    'other' : ['-O2', '-Wno-strict-prototypes', '-Wno-unused-function']
+    'other' : ['-std=c++11', '-O2', '-Wno-strict-prototypes', '-Wno-unused-function']
 }
 
 
