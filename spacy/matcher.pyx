@@ -8,8 +8,14 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
+from cython.operator cimport dereference as deref
 from murmurhash.mrmr cimport hash64
 from libc.stdint cimport int32_t
+
+try:
+    from libcpp.unordered_map cimport unordered_map as umap
+except:
+    from libcpp.map cimport map as umap
 
 from .typedefs cimport attr_t
 from .typedefs cimport hash_t
@@ -62,10 +68,10 @@ cdef enum action_t:
     REPEAT
     ACCEPT
     ADVANCE_ZERO
+    ADVANCE_PLUS
     ACCEPT_PREV
     PANIC
 
-# A "match expression" conists of one or more token patterns
 # Each token pattern consists of a quantifier and 0+ (attr, value) pairs.
 # A state is an (int, pattern pointer) pair, where the int is the start
 # position, and the pattern pointer shows where we're up to
@@ -85,6 +91,11 @@ cdef struct TokenPatternC:
 ctypedef TokenPatternC* TokenPatternC_ptr
 ctypedef pair[int, TokenPatternC_ptr] StateC
 
+# Match Dictionary entry type
+cdef struct MatchEntryC:
+    int32_t start
+    int32_t end
+    int32_t offset
 
 cdef TokenPatternC* init_pattern(Pool mem, attr_t entity_id,
                                  object token_specs) except NULL:
@@ -128,7 +139,10 @@ cdef int get_action(const TokenPatternC* pattern, const TokenC* token) nogil:
     if pattern.quantifier == ZERO:
         return REJECT
     elif lookahead.nr_attr == 0:
-        return ACCEPT
+        if pattern.quantifier == ZERO_PLUS:
+            return REPEAT
+        else:
+            return ACCEPT
     elif pattern.quantifier in (ONE, ZERO_ONE):
         return ADVANCE
     elif pattern.quantifier == ZERO_PLUS:
@@ -138,7 +152,7 @@ cdef int get_action(const TokenPatternC* pattern, const TokenC* token) nogil:
         if next_action is REJECT:
             return REPEAT
         else:
-            return ADVANCE_ZERO
+            return ADVANCE_PLUS
     else:
         return PANIC
 
@@ -330,14 +344,39 @@ cdef class Matcher:
         cdef int i, token_i
         cdef const TokenC* token
         cdef StateC state
+        cdef int j = 0
+        cdef int k
+        cdef bint add_match,overlap = False
+        cdef TokenPatternC_ptr final_state
+        cdef umap[TokenPatternC_ptr,MatchEntryC] matches_dict
+        cdef umap[TokenPatternC_ptr,MatchEntryC].iterator state_match
+        cdef MatchEntryC new_match
         matches = []
         for token_i in range(doc.length):
             token = &doc.c[token_i]
             q = 0
             # Go over the open matches, extending or finalizing if able.
             # Otherwise, we over-write them (q doesn't advance)
-            for state in partials:
+            #for state in partials:
+            j=0
+            while j < n_partials:
+                state = partials[j]
                 action = get_action(state.second, token)
+                j += 1
+                # Skip patterns that would overlap with an existing match
+                # Patterns overlap an existing match if they point to the
+                # same final state and start between the start and end
+                # of said match.
+                # Different patterns with the same label are allowed to 
+                # overlap.
+                final_state = state.second
+                while final_state.nr_attr != 0:
+                    final_state+=1
+                state_match = matches_dict.find(final_state)
+                if (state_match != matches_dict.end() 
+                    and state.first>deref(state_match).second.start 
+                    and state.first<deref(state_match).second.end):
+                    continue
                 if action == PANIC:
                     raise Exception("Error selecting action in matcher")
                 while action == ADVANCE_ZERO:
@@ -345,17 +384,52 @@ cdef class Matcher:
                     action = get_action(state.second, token)
                 if action == PANIC:
                     raise Exception("Error selecting action in matcher")
+                
+                # ADVANCE_PLUS acts like REPEAT, but also pushes a partial that
+                # acts like and ADVANCE_ZERO
+                if action == ADVANCE_PLUS:
+                    state.second += 1
+                    partials.push_back(state)
+                    n_partials += 1
+                    state.second -= 1
+                    action = REPEAT
 
+                if action == ADVANCE:
+                    state.second += 1
+
+                # Check for partial matches that are at the same spec in the same pattern
+                # Keep the longer of the matches
+                # This ensures that there are never more then 2 partials for every spec
+                # in a pattern (one of which gets pruned in this step)
+
+                overlap=False
+                for i in range(q):
+                    if state.second == partials[i].second and state.first < partials[i].first:
+                        partials[i] = state
+                        j = i
+                        overlap = True
+                        break
+                if overlap:
+                    continue
+                overlap=False
+                for i in range(q):
+                    if state.second == partials[i].second:
+                        overlap = True
+                        break
+                if overlap:
+                    continue
+
+    
                 if action == REPEAT:
                     # Leave the state in the queue, and advance to next slot
                     # (i.e. we don't overwrite -- we want to greedily match
                     # more pattern.
+                    partials[q] = state
                     q += 1
                 elif action == REJECT:
                     pass
                 elif action == ADVANCE:
                     partials[q] = state
-                    partials[q].second += 1
                     q += 1
                 elif action in (ACCEPT, ACCEPT_PREV):
                     # TODO: What to do about patterns starting with ZERO? Need
@@ -363,34 +437,116 @@ cdef class Matcher:
                     start = state.first
                     end = token_i+1 if action == ACCEPT else token_i
                     ent_id = state.second[1].attrs[0].value
+                    # ent_id = get_pattern_key(state.second)
                     label = state.second[1].attrs[1].value
-                    matches.append((ent_id, start, end))
+                    # Check that this match doesn't overlap with an earlier match.
+                    # Only overwrite an earlier match if it is a substring of this
+                    # match (i.e. it starts after this match starts).
+                    final_state = state.second+1
+                    state_match = matches_dict.find(final_state)
+
+                    if state_match == matches_dict.end():
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = len(matches)
+                        matches_dict[final_state] = new_match
+                        matches.append((ent_id,start,end))
+                    elif start >= deref(state_match).second.end:
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = len(matches)
+                        matches_dict[final_state] = new_match
+                        matches.append((ent_id,start,end))
+                    elif start <= deref(state_match).second.start and end>=deref(state_match).second.end:
+                        i = deref(state_match).second.offset
+                        matches[i] = (ent_id,start,end)
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = i
+                        matches_dict[final_state] = new_match
+                    else:
+                        pass
 
             partials.resize(q)
+            n_partials = q
             # Check whether we open any new patterns on this token
             for pattern in self.patterns:
+                # Skip patterns that would overlap with an existing match
+                ent_id = get_pattern_key(pattern)
+                final_state = pattern
+                while final_state.nr_attr != 0:
+                    final_state+=1
+                state_match = matches_dict.find(final_state)
+                if (state_match != matches_dict.end() 
+                    and token_i>deref(state_match).second.start 
+                    and token_i<deref(state_match).second.end):
+                    continue
                 action = get_action(pattern, token)
                 if action == PANIC:
                     raise Exception("Error selecting action in matcher")
-                while action == ADVANCE_ZERO:
+                while action in (ADVANCE_PLUS,ADVANCE_ZERO):
+                    if action == ADVANCE_PLUS:
+                        state.first = token_i
+                        state.second = pattern
+                        partials.push_back(state)
+                        n_partials += 1
                     pattern += 1
                     action = get_action(pattern, token)
+
+                if action == ADVANCE:
+                    pattern += 1
+                j=0
+                overlap = False
+                for j in range(q):
+                    if pattern == partials[j].second:
+                        overlap = True
+                        break
+                if overlap:
+                    continue
+
+
                 if action == REPEAT:
                     state.first = token_i
                     state.second = pattern
                     partials.push_back(state)
+                    n_partials += 1
                 elif action == ADVANCE:
                     # TODO: What to do about patterns starting with ZERO? Need
                     # to adjust the start position.
                     state.first = token_i
-                    state.second = pattern + 1
+                    state.second = pattern
                     partials.push_back(state)
+                    n_partials += 1
                 elif action in (ACCEPT, ACCEPT_PREV):
                     start = token_i
                     end = token_i+1 if action == ACCEPT else token_i
                     ent_id = pattern[1].attrs[0].value
+
                     label = pattern[1].attrs[1].value
-                    matches.append((ent_id, start, end))
+                    final_state = pattern+1
+                    state_match = matches_dict.find(final_state)
+                    if state_match == matches_dict.end():
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = len(matches)
+                        matches_dict[final_state] = new_match
+                        matches.append((ent_id,start,end))
+                    elif start >= deref(state_match).second.end:
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = len(matches)
+                        matches_dict[final_state] = new_match
+                        matches.append((ent_id,start,end))
+                    elif start <= deref(state_match).second.start and end>=deref(state_match).second.end:
+                        j = deref(state_match).second.offset
+                        matches[j] = (ent_id,start,end)
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = j
+                        matches_dict[final_state] = new_match
+                    else:
+                        pass
+
         # Look for open patterns that are actually satisfied
         for state in partials:
             while state.second.quantifier in (ZERO, ZERO_ONE, ZERO_PLUS):
@@ -399,8 +555,30 @@ cdef class Matcher:
                     start = state.first
                     end = len(doc)
                     ent_id = state.second.attrs[0].value
-                    label = state.second.attrs[0].value
-                    matches.append((ent_id, start, end))
+                    label = state.second.attrs[1].value
+                    final_state = state.second
+                    state_match = matches_dict.find(final_state)
+                    if state_match == matches_dict.end():
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = len(matches)
+                        matches_dict[final_state] = new_match
+                        matches.append((ent_id,start,end))
+                    elif start >= deref(state_match).second.end:
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = len(matches)
+                        matches_dict[final_state] = new_match
+                        matches.append((ent_id,start,end))
+                    elif start <= deref(state_match).second.start and end>=deref(state_match).second.end:
+                        j = deref(state_match).second.offset
+                        matches[j] = (ent_id,start,end)
+                        new_match.start = start
+                        new_match.end = end
+                        new_match.offset = j
+                        matches_dict[final_state] = new_match
+                    else:
+                        pass
         for i, (ent_id, start, end) in enumerate(matches):
             on_match = self._callbacks.get(ent_id)
             if on_match is not None:
