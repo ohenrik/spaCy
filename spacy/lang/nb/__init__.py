@@ -9,7 +9,7 @@ from ..tokenizer_exceptions import BASE_EXCEPTIONS
 from ..norm_exceptions import BASE_NORMS
 from .lemmatizer import LOOKUP
 from .tag_map import TAG_MAP
-from .syntax_iterators import SYNTAX_ITERATORS
+# from .syntax_iterators import SYNTAX_ITERATORS
 from ...language import Language
 from ...attrs import LANG, NORM
 from ...util import update_exc, add_lookups
@@ -23,7 +23,7 @@ class NorwegianDefaults(Language.Defaults):
     stop_words = STOP_WORDS
     tag_map = TAG_MAP
     lemma_lookup = LOOKUP
-    sytax_iterators = SYNTAX_ITERATORS
+    # sytax_iterators = SYNTAX_ITERATORS
 
 
 class Norwegian(Language):
