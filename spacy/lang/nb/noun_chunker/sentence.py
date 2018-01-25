@@ -26,13 +26,13 @@ class Sentence():
             self.words[word.head].deps.append(int(word.id))
 
     def get_word_list(self):
-        return [str(word) for word in self.words]
+        return [word.word for word in self.words]
 
     def get_wordObjects(self):
         return self.words
 
     def get_id_list(self):
-        return [word.i for word in self.words]
+        return [word.id for word in self.words]
 
     def get_word_at_position(self, pos):
         return self.words[pos]
