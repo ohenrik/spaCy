@@ -382,7 +382,7 @@ class Rules():
             # Denne skal fange dobble determinanter, der subjekt mangler, som gjør det til substitut subjekt.
             # Se setning 57, 'hans eget'
             #===================================================================
-            elif(word.type in conv_pos('det') and word.chunk.id == -1 and wordList[n+1].id == word.head and wordList[n+1].chunk.id == -1 and wordList[n+1].type == 'det' and word.posent == conv_posent('DET')):
+            elif(word.type in conv_pos('det') and word.chunk.id == -1 and wordList[n+1].id == word.head and wordList[n+1].chunk.id == -1 and wordList[n+1].type in conv_pos('det') and word.posent == conv_posent('DET')):
                 type = 'NP'
                 chunk = Chunk(self.chunkID, type)
                 self.chunkID = self.chunkID + 1
@@ -397,7 +397,7 @@ class Rules():
             # Denne skal fange dobble determinanter, der subjekt mangler, som gjør det til substitut subjekt. Her er ikke determinantene knyttet samme
             # Se setning 1108, 'en annen'. Merk at setningen ser ut til å mangle noen ord
             #===================================================================
-            elif(word.type in conv_pos('det') and word.chunk.id == -1 and wordList[n+1].chunk.id == -1 and wordList[n+1].type == 'det' and word.posent == conv_posent('DET') and wordList[n+1].posent == conv_posent('DET')):
+            elif(word.type in conv_pos('det') and word.chunk.id == -1 and wordList[n+1].chunk.id == -1 and wordList[n+1].type in conv_pos('det') and word.posent == conv_posent('DET') and wordList[n+1].posent == conv_posent('DET')):
                 type = 'NP'
                 chunk = Chunk(self.chunkID, type)
                 self.chunkID = self.chunkID + 1
@@ -412,7 +412,7 @@ class Rules():
             # Denne skal fange dobble determinanter, der subjekt mangler, som gjør det til substitut subjekt. det er knyttet sammen.
             # Se setning 6091, '33 000'
             #===================================================================
-            elif(word.type in conv_pos('det') and word.chunk.id == -1 and wordList[n+1].chunk.id == -1 and wordList[n+1].type == 'det' and wordList[n+1].id == word.head):
+            elif(word.type in conv_pos('det') and word.chunk.id == -1 and wordList[n+1].chunk.id == -1 and wordList[n+1].type in conv_pos('det') and wordList[n+1].id == word.head):
                 type = 'NP'
                 chunk = Chunk(self.chunkID, type)
                 self.chunkID = self.chunkID + 1
@@ -507,7 +507,7 @@ class Rules():
                     for word in wordList[n-1].chunk.words:
                         word.setChunk(currentChunk)
                         currentChunk.add_word(word)
-                if(wordList[n-1].head == word.id and wordList[n-1].type == 'det'):
+                if(wordList[n-1].head == word.id and wordList[n-1].type in conv_pos('det')):
                     if(wordList[n-1].chunk.id != -1):
                         wordList[n-1].chunk.remove_word(wordList[n-1])
                     wordList[n-1].setChunk(currentChunk)
@@ -516,7 +516,7 @@ class Rules():
             # Denne skal fange ufl der to ufl er skilt med en konj, slik at de kan slåes sammen til en NP
             # Se setning 1415 'brask og bram'
             #===================================================================
-            elif(word.type in conv_pos('ufl') and word.chunk.id == -1 and wordList[word.head].type == 'ufl' and wordList[n-1].type == 'konj' and wordList[n-1].head == word.id):
+            elif(word.type in conv_pos('ufl') and word.chunk.id == -1 and wordList[word.head].type in conv_pos('ufl') and wordList[n-1].type in conv_pos('konj') and wordList[n-1].head == word.id):
                 type = 'NP'
                 chunk = Chunk(self.chunkID, type)
                 self.chunkID = self.chunkID + 1
@@ -535,7 +535,7 @@ class Rules():
             # Denne skal fange ufl der ufl henger på subjeket
             # Se setning 2344
             #===================================================================
-            elif(word.type in conv_pos('ufl') and word.chunk.id == -1 and wordList[word.head].type == 'subst'):
+            elif(word.type in conv_pos('ufl') and word.chunk.id == -1 and wordList[word.head].type in conv_pos('subst')):
                 word.setChunk(wordList[word.head].chunk)
                 wordList[word.head].chunk.add_word(word)
             #===================================================================
@@ -549,7 +549,7 @@ class Rules():
             # Denne skal fange noen forkortelser, og sette NP.
             # Se 463 'F Eks'
             #===================================================================
-            elif(word.type in conv_pos('fork') and word.chunk.id == -1 and wordList[n+1].head == word.id and wordList[n+1].type == 'fork'):
+            elif(word.type in conv_pos('fork') and word.chunk.id == -1 and wordList[n+1].head == word.id and wordList[n+1].type in conv_pos('fork')):
                 type = 'NP'
                 chunk = Chunk(self.chunkID, type)
                 self.chunkID = self.chunkID + 1
@@ -583,7 +583,7 @@ class Rules():
             # Se setning 5528 det motsatte ('dem'???)
             #===================================================================
             #===================================================================
-            # elif(word.type in conv_pos('dem') and word.chunk.id == -1 and word.posent == conv_posent('DET') and word.head == wordList[n+1].id and wordList[n+1].type == 'adj' and wordList[n+1].chunk.type == 'ADJP'):
+            # elif(word.type in conv_pos('dem') and word.chunk.id == -1 and word.posent == conv_posent('DET') and word.head == wordList[n+1].id and wordList[n+1].type in conv_pos('adj') and wordList[n+1].chunk.type == 'ADJP'):
             #    wordList[word.head].chunk.add_word(word)
             #    word.setChunk(wordList[word.head].chunk)
             #===================================================================

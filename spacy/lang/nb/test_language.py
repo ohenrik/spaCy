@@ -3,11 +3,13 @@ from spacy.lang.nb.noun_chunker.rules import Rules
 from spacy.lang.nb.noun_chunker.sentence import Sentence
 from spacy import displacy
 # model = spacy.load('/home/ohenrik/ads-projectdata/upfeed_analyser/data/models/small2/model7')
-model = spacy.load('/Users/ohenrik/Sites/upfeed_analyser/data/models/small5/model6')
+model = spacy.load('/Users/ohenrik/Sites/upfeed_analyser/data/models/small6/model8')
 
 doc1 = model('Det året jeg fylte 18, døde bestefaren min')
-# doc2 = model('Utvalget har fulgt opp dette, og også beskrevet de viktigste konsekvensene som de ulike alternativene innebærer for staten , Den norske kirke og andre tros- og livssynssamfunn .')
-doc2 = model('Utvalget har fulgt opp dette, og også beskrevet de viktigste konsekvensene som de ulike alternativene innebærer for staten , Den norske kirke og andre livssynssamfunn .')
+doc1 = model('I går døde bestefaren min')
+
+doc2 = model('Utvalget har fulgt opp dette, og også beskrevet de viktigste konsekvensene som de ulike alternativene innebærer for staten , Den norske kirke og andre tros- og livssynssamfunn .')
+# doc2 = model('Utvalget har fulgt opp dette, og også beskrevet de viktigste konsekvensene som de ulike alternativene innebærer for staten , Den norske kirke og andre livssynssamfunn .')
 
 
 def printTokens(doc):
