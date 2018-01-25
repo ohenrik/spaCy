@@ -5,9 +5,7 @@ from .conv import pos as conv_pos
 # import .statlog
 
 class Rules():
-    '''
-    classdocs
-    '''
+    """Rules class determining how to assemble noun chunks"""
     chunkID = 0
     currentChunk = 0
     prevChunk = 0
@@ -15,9 +13,7 @@ class Rules():
     # statlog = 0
 
     def __init__(self):
-        '''
-        Constructor
-        '''
+        pass
 
     def applyRulesInit(self, sentenceList):
         # self.statlog = goldcorpus.statlog.StatLog()

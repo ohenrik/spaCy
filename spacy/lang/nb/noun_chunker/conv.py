@@ -1,4 +1,9 @@
-"""Converter module from OBT to UD"""
+"""Converter module from OBT to UD
+
+Using this conversion:
+http://www.lrec-conf.org/proceedings/lrec2016/pdf/462_Paper.pdf
+
+"""
 
 pos_dict = {
     'adj': ['ADJ'],
@@ -20,7 +25,7 @@ pos_dict = {
     'symb': ['SYM'],
     'ukjent': ['X'],
     'verb': ['AUX', 'VERB'],
-    # 'ufl': ['ADP'] # We need to fix this
+    # 'ufl': ['NOUN', 'ADJ'] # We need to fix this
 }
 
 def pos(text):
