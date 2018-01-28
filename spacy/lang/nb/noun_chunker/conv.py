@@ -25,7 +25,7 @@ pos_dict = {
     'symb': ['SYM'],
     'ukjent': ['X'],
     'verb': ['AUX', 'VERB'],
-    # 'ufl': ['NOUN', 'ADJ'] # We need to fix this
+    # 'ufl': ['ADP'] # We need to fix this
 }
 
 def pos(text):

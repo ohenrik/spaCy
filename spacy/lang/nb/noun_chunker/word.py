@@ -14,7 +14,7 @@ class Word():
     deps = []
     chunk = 0
 
-    def __init__(self, word=None, id_=None):
+    def __init__(self, word=None):
         '''
         Constructor
         '''

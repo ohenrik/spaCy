@@ -1,20 +1,22 @@
 from .word import Word
 
 class Sentence():
+    doc = None
     words = []
     chunks = []
     id = -1
 
 
 
-    def __init__(self, id, sentence):
+    def __init__(self, id, sentence=None):
         '''
         Constructor
         '''
         self.id = id
+        self.doc = sentence
         # self.words = doc
         self.words = []
-        self.words.append(Word(None, 0))
+        self.words.append(Word(None))
         for word in sentence:
             self.words.append(Word(word))
         self.calc_dependencys()
